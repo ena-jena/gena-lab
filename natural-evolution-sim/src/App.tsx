@@ -49,9 +49,6 @@ function App() {
   })
 
   const [isRunning, setIsRunning] = useState(false)
-  const [tooltip, setTooltip] = useState({ show: false, text: '', x: 0, y: 0 })
-  const gridContainerRef = useRef<HTMLDivElement>(null)
-  const gridBottomRef = useRef<HTMLDivElement>(null)
   const [darkMode, setDarkMode] = useState(true)
 
   useEffect(() => {
@@ -582,7 +579,7 @@ function App() {
                       (darkMode ? 'text-slate-300' : 'text-slate-700')
                     }>Trait Averages</h3>
                     <div className="space-y-3">
-                      {['speed', 'size', 'energy', 'reproduction'].map((trait, i) => (
+                      {['speed', 'size', 'energy', 'reproduction'].map((trait) => (
                         <div key={trait}>
                           <div className={
                             'flex justify-between text-xs mb-1 transition-colors duration-500 ' +
