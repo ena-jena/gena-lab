@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const poppinsFontLink = <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet" />
 
@@ -27,6 +27,20 @@ interface SimulationStats {
     reproduction: number
   }
 }
+
+interface TooltipState {
+  show: boolean;
+  text: string;
+  x: number;
+  y: number;
+}
+
+const [tooltip, setTooltip] = useState<TooltipState>({
+  show: false,
+  text: '',
+  x: 0,
+  y: 0,
+})
 
 const GRID_COLS = 20
 const GRID_ROWS = 10
