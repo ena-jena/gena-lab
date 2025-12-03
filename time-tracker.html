@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Daily Time Tracker Dashboard</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            },
+            colors: {
+              primary: {
+                50: '#f5f7fa',
+                100: '#e4e8ee',
+                200: '#c7d0dd',
+                300: '#a9b8cc',
+                400: '#7a93b0',
+                500: '#4b6a8a',
+                600: '#39516b',
+                700: '#27384c',
+                800: '#18212e',
+                900: '#0a0d13',
+              },
+              accent: {
+                purple: '#a78bfa',
+                aqua: '#38bdf8',
+              },
+              glass: 'rgba(255,255,255,0.15)',
+              darkglass: 'rgba(30,41,59,0.7)',
+            },
+            boxShadow: {
+              glass: '0 8px 32px 0 rgba(31, 38, 135, 0.18)',
+            },
+          },
+        },
+      };
+    </script>
+    <style>
+      /* Custom scrollbar */
+      ::-webkit-scrollbar {
+        width: 10px;
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #4b6a8a 0%, #a78bfa 100%);
+        border-radius: 8px;
+        transition: background 0.3s;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #38bdf8 0%, #a78bfa 100%);
+      }
+      @media (max-width: 900px) {
+        #summaryPanel {
+          position: static !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          margin-left: 0 !important;
+          margin-bottom: 0 !important;
+          margin-top: 1.5rem !important;
+        }
+      }
+      @keyframes indicator-breath {
+        0%, 100% { box-shadow: 0 0 16px 2px rgba(56,189,248,0.25), 0 0 0 0 rgba(167,139,250,0.18); }
+        50% { box-shadow: 0 0 32px 8px rgba(56,189,248,0.45), 0 0 0 8px rgba(167,139,250,0.12); }
+      }
+      .indicator-breath {
+        animation: indicator-breath 2.2s ease-in-out infinite;
+      }
+    </style>
+  </head>
+  <body class="min-h-screen bg-gray-100 dark:bg-neutral-950 transition-colors duration-500 text-gray-800 dark:text-gray-200 font-sans">
+    <div id="app" class="min-h-screen flex flex-col items-center justify-start py-8 px-2">
+      <!-- Header -->
+      <header class="w-full max-w-6xl flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-black dark:text-accent-purple tracking-tight drop-shadow mb-2">Time Tracker</h1>
+        <!-- Dark mode toggle -->
+        <button id="darkModeToggle" aria-label="Toggle dark mode" class="p-2 rounded-full bg-white dark:bg-gray-800 shadow-glass border border-accent-aqua dark:border-accent-purple hover:scale-105 hover:shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent-purple">
+          <!-- Sun/Moon SVG will be injected by JS -->
+        </button>
+      </header>
+      <!-- Main Content -->
+      <main class="w-full max-w-6xl flex flex-col gap-6 items-center font-sans">
+        <!-- Add Task Button (outside timeline) -->
+        <div class="w-full max-w-6xl flex justify-end mb-2">
+          <button id="addTaskBtn" class="flex items-center gap-2 px-5 py-2 rounded-full font-semibold bg-accent-aqua text-white dark:bg-accent-purple dark:text-gray-900 shadow-lg hover:scale-105 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent-purple">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            Add Task
+          </button>
+        </div>
+        <!-- Timeline Container -->
+        <div class="w-full max-w-6xl relative mb-4">
+          <section id="timeline" class="w-full bg-white/80 dark:bg-gray-800 rounded-2xl shadow-glass border border-accent-purple dark:border-accent-aqua backdrop-blur-md p-6 overflow-x-auto overflow-y-visible relative min-h-[320px] max-h-[60vh] transition-all">
+            <div id="currentHourIndicator" class="absolute top-0 left-0 h-full z-30 pointer-events-none" style="width:0;"></div>
+            <div id="timelineGrid" class="flex w-[3000px] max-w-full min-w-[1500px] gap-4 pt-10">
+              <!-- 24 hour blocks -->
+              <script>
+                const timeline = document.currentScript.parentElement;
+                const hours = Array.from({length: 24}, (_, i) => i);
+                hours.forEach(hour => {
+                  const hourBlock = document.createElement('div');
+                  hourBlock.className = `flex flex-col items-center justify-between w-36 min-w-[7.5rem] h-64 bg-transparent border-r last:border-r-0 border-gray-200 dark:border-gray-700 relative`;
+                  // Hour label
+                  const label = document.createElement('span');
+                  label.className = 'text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2 mt-auto';
+                  let hourLabel = hour === 0 ? '12 AM' : hour < 12 ? `${hour} AM` : hour === 12 ? '12 PM' : `${hour-12} PM`;
+                  label.textContent = hourLabel;
+                  // Placeholder for task blocks
+                  const taskPlaceholder = document.createElement('div');
+                  taskPlaceholder.className = 'flex-1 w-full flex flex-col items-center justify-center';
+                  hourBlock.appendChild(taskPlaceholder);
+                  hourBlock.appendChild(label);
+                  timeline.appendChild(hourBlock);
+                });
+              </script>
+            </div>
+          </section>
+        </div>
+        <!-- Summary + Focus Zone Row -->
+        <div class="w-full max-w-6xl flex flex-col md:flex-row gap-6 mt-6">
+          <!-- Summary Panel -->
+          <aside id="summaryPanel" class="flex-1 bg-white dark:bg-gray-900 rounded-2xl shadow-glass border border-accent-purple dark:border-accent-aqua backdrop-blur-none p-6 flex flex-col gap-4 transition-all duration-500 hover:shadow-2xl hover:scale-[1.02] hover:border-accent-aqua dark:hover:border-accent-purple min-w-[260px]">
+            <div class="flex items-center gap-2">
+              <span class="inline-block align-middle">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent-aqua dark:text-accent-purple"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+              </span>
+              <h2 class="text-lg font-semibold text-gray-800 dark:text-accent-purple">Summary</h2>
+            </div>
+            <div class="flex flex-col gap-4">
+              <div>
+                <div class="flex justify-between text-accent-aqua dark:text-accent-purple font-medium">
+                  <span>Total Work</span>
+                  <span id="totalWork">0h 00m</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-2">
+                  <div id="workBar" class="h-full rounded-full bg-accent-aqua dark:bg-accent-purple transition-all duration-700" style="width:0%"></div>
+                </div>
+              </div>
+              <div>
+                <div class="flex justify-between text-primary-500 dark:text-accent-aqua">
+                  <span>Total Break</span>
+                  <span id="totalBreak">0h 00m</span>
+                </div>
+                <div class="w-full h-3 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden mt-2">
+                  <div id="breakBar" class="h-full rounded-full bg-accent-purple dark:bg-accent-aqua transition-all duration-700" style="width:0%"></div>
+                </div>
+              </div>
+            </div>
+          </aside>
+          <!-- Focus Zone -->
+          <section id="focusZone" class="flex-1 min-w-[260px] bg-white dark:bg-gray-900 rounded-2xl shadow-glass border border-accent-aqua dark:border-accent-purple p-6 flex flex-col gap-3 transition-all duration-500">
+            <div class="flex items-center gap-2 mb-2">
+              <span class="inline-block align-middle">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-accent-aqua dark:text-accent-purple">
+                    <circle cx="12" cy="12" r="10" />
+                    <circle cx="12" cy="12" r="4" />
+                    <line x1="12" y1="2" x2="12" y2="6" />
+                    <line x1="12" y1="18" x2="12" y2="22" />
+                    <line x1="2" y1="12" x2="6" y2="12" />
+                    <line x1="18" y1="12" x2="22" y2="12" />
+                </svg>
+              </span>
+              <h2 class="text-lg font-semibold text-gray-800 dark:text-accent-purple">Focus Zone</h2>
+            </div>
+            <div id="focusZoneContent" class="flex flex-col gap-3">
+              <!-- Cards rendered by JS go here -->
+            </div>
+          </section>
+        </div>
+        <!-- Add Task Modal -->
+        <div id="addTaskModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm hidden">
+          <div class="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-8 w-full max-w-md relative">
+            <button id="closeTaskModal" class="absolute top-4 right-4 text-gray-400 hover:text-accent-aqua dark:hover:text-accent-purple text-2xl font-bold">&times;</button>
+            <h2 class="text-xl font-bold mb-4 text-gray-800 dark:text-gray-100">Add New Task</h2>
+            <form id="taskForm" class="flex flex-col gap-4">
+              <div>
+                <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Task Name <span class="text-red-500">*</span></label>
+                <input type="text" name="name" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-aqua" />
+              </div>
+              <div class="flex gap-4">
+                <div class="flex-1">
+                  <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Start Time <span class="text-red-500">*</span></label>
+                  <select name="start" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-aqua">
+                    <script>
+                      const select = document.currentScript.parentElement;
+                      for (let h = 0; h < 24; h++) {
+                        for (let m = 0; m < 60; m += 15) {
+                          const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                          const ampm = h === 0 ? '12' : h > 12 ? h - 12 : h;
+                          const label = `${ampm}:${m.toString().padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`;
+                          const option = document.createElement('option');
+                          option.value = value;
+                          option.textContent = label;
+                          select.appendChild(option);
+                        }
+                      }
+                    </script>
+                  </select>
+                </div>
+                <div class="flex-1">
+                  <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Duration (hours) <span class="text-red-500">*</span></label>
+                  <input type="number" name="duration" min="0.1" step="0.1" required class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-aqua" />
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Location</label>
+                <input type="text" name="location" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-aqua" />
+              </div>
+              <div>
+                <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Description</label>
+                <textarea name="description" rows="2" class="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-accent-aqua"></textarea>
+              </div>
+              <div>
+                <label class="block text-sm font-semibold mb-1 text-gray-700 dark:text-gray-300">Color <span class="text-red-500">*</span></label>
+                <div class="flex gap-2 mt-1">
+                  <label><input type="radio" name="color" value="#38bdf8" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#38bdf8] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#a78bfa" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#a78bfa] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#f472b6" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#f472b6] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#facc15" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#facc15] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#34d399" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#34d399] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#60a5fa" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#60a5fa] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#fb7185" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#fb7185] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                  <label><input type="radio" name="color" value="#fbbf24" required class="sr-only peer"><span class="inline-block w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-700 bg-[#fbbf24] peer-checked:ring-2 peer-checked:ring-accent-purple cursor-pointer transition"></span></label>
+                </div>
+              </div>
+              <button type="submit" class="mt-2 px-5 py-2 rounded-full font-semibold bg-accent-aqua text-white dark:bg-accent-purple dark:text-gray-900 shadow-lg hover:scale-105 hover:shadow-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-accent-purple">Add Task</button>
+            </form>
+          </div>
+        </div>
+      </main>
+    </div>
+    <!-- Tooltips, modals, and overlays will be injected here by JS -->
+    <div id="tooltip" class="hidden fixed z-50 pointer-events-none"></div>
+    <script>
+      // JS logic for dark mode toggle, timeline rendering, drag/resize, tooltips, summary updates, etc. will be added here.
+
+      // --- Current Hour Indicator ---
+      let indicatorAnimationFrame;
+      function updateCurrentHourIndicator(scrollToCenter = false) {
+        const indicator = document.getElementById('currentHourIndicator');
+        const timelineSection = document.getElementById('timeline');
+        const timelineGrid = document.getElementById('timelineGrid');
+        if (!indicator || !timelineGrid) return;
+        const now = new Date();
+        const hour = now.getHours();
+        const minute = now.getMinutes();
+        const second = now.getSeconds();
+        const totalHours = 24;
+        const percent = (hour + minute / 60 + second / 3600) / totalHours;
+        const left = percent * timelineGrid.scrollWidth;
+        indicator.style.left = `${left + timelineGrid.offsetLeft}px`;
+        indicator.style.width = '0';
+        indicator.style.height = `${timelineGrid.offsetHeight}px`;
+        indicator.innerHTML = `
+          <div class="relative h-full flex flex-col items-center">
+            <div class="w-1 h-full bg-gradient-to-b from-accent-aqua/80 via-accent-purple/80 to-transparent dark:from-accent-purple/90 dark:via-accent-aqua/90 dark:to-transparent rounded-full shadow-lg transition-all duration-300 indicator-breath"></div>
+            <div class="absolute -top-7 left-1/2 -translate-x-1/2 px-2 py-1 rounded-md bg-white/90 dark:bg-gray-900/90 text-xs font-semibold text-gray-800 dark:text-gray-100 shadow border border-gray-200 dark:border-gray-700 pointer-events-auto" style="white-space:nowrap;">
+              ${now.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit', second: '2-digit'})}
+            </div>
+          </div>
+        `;
+        // Scroll to center the indicator if requested
+        if (scrollToCenter) {
+          const timelineScroll = timelineSection;
+          const visibleWidth = timelineScroll.clientWidth;
+          const indicatorCenter = left;
+          timelineScroll.scrollLeft = Math.max(0, indicatorCenter - visibleWidth / 2);
+        }
+      }
+      function animateCurrentHourIndicator() {
+        updateCurrentHourIndicator(false);
+        indicatorAnimationFrame = requestAnimationFrame(animateCurrentHourIndicator);
+      }
+      function startCurrentHourIndicator() {
+        updateCurrentHourIndicator(true); // Center on load
+        animateCurrentHourIndicator();
+      }
+      window.addEventListener('DOMContentLoaded', startCurrentHourIndicator);
+    </script>
+    <script>
+      // Dark mode toggle logic
+      const html = document.documentElement;
+      const darkModeToggle = document.getElementById('darkModeToggle');
+      const sunIcon = `<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`;
+      const moonIcon = `<svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 109.79 9.79z"/></svg>`;
+
+      function setDarkMode(isDark) {
+        if (isDark) {
+          html.classList.add('dark');
+          darkModeToggle.innerHTML = sunIcon;
+        } else {
+          html.classList.remove('dark');
+          darkModeToggle.innerHTML = moonIcon;
+        }
+      }
+
+      // Initialize mode from localStorage or system preference
+      function initDarkMode() {
+        let darkPref = localStorage.getItem('darkMode');
+        if (darkPref === null) {
+          // Use system preference
+          darkPref = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'true' : 'false';
+        }
+        setDarkMode(darkPref === 'true');
+      }
+
+      darkModeToggle.addEventListener('click', () => {
+        const isDark = !html.classList.contains('dark');
+        setDarkMode(isDark);
+        localStorage.setItem('darkMode', isDark);
+      });
+
+      // On page load
+      window.addEventListener('DOMContentLoaded', initDarkMode);
+    </script>
+    <script>
+      // --- Add Task Modal Logic ---
+      let editingTaskIndex = null;
+      const addTaskBtn = document.getElementById('addTaskBtn');
+      const addTaskModal = document.getElementById('addTaskModal');
+      const closeTaskModal = document.getElementById('closeTaskModal');
+      const taskForm = document.getElementById('taskForm');
+      const taskFormSubmitBtn = taskForm.querySelector('button[type="submit"]');
+      addTaskBtn.addEventListener('click', () => {
+        editingTaskIndex = null;
+        taskForm.reset();
+        taskFormSubmitBtn.textContent = 'Add Task';
+        addTaskModal.classList.remove('hidden');
+      });
+      closeTaskModal.addEventListener('click', () => {
+        addTaskModal.classList.add('hidden');
+        editingTaskIndex = null;
+        taskForm.reset();
+        taskFormSubmitBtn.textContent = 'Add Task';
+      });
+      addTaskModal.addEventListener('click', (e) => {
+        if (e.target === addTaskModal) {
+          addTaskModal.classList.add('hidden');
+          editingTaskIndex = null;
+          taskForm.reset();
+          taskFormSubmitBtn.textContent = 'Add Task';
+        }
+      });
+
+      // --- Task Data and Rendering ---
+      const timelineGrid = document.getElementById('timelineGrid');
+      let tasks = [];
+
+      function renderTasks() {
+        timelineGrid.querySelectorAll('.task-block').forEach(el => el.remove());
+
+        const placed = [];
+        const totalHours = 24;
+        const gridWidth = timelineGrid.scrollWidth;
+
+        tasks.forEach(task => {
+          // Calcular posición y tamaño
+          const [h, m] = task.start.split(':').map(Number);
+          const startFrac = h + m / 60;
+          const left = (startFrac / totalHours) * gridWidth;
+          const width = (task.duration / totalHours) * gridWidth;
+
+          // Posición vertical si hay colisiones
+          let row = 0;
+          while (placed.some(other => {
+            if (other.row !== row) return false;
+            const t1 = timeToMinutes(task.start);
+            const t2 = t1 + task.duration * 60;
+            const o1 = timeToMinutes(other.start);
+            const o2 = o1 + other.duration * 60;
+            return t1 < o2 && t2 > o1;
+          })) row++;
+
+          placed.push({...task, row});
+
+          // Crear bloque
+          const block = document.createElement('div');
+          block.className = 'task-block absolute h-16 flex items-center justify-center rounded-xl shadow-lg font-semibold text-sm cursor-grab select-none transition-all duration-200';
+          block.style.left = `${left + 15}px`;
+          block.style.width = `${width}px`;
+          block.style.top = `${8 + row * 70}px`;
+          block.style.background = task.color;
+          block.style.color = getContrastYIQ(task.color);
+          block.innerHTML = `<span class="truncate px-2">${task.name}</span>`;
+
+          // Tooltip
+          block.addEventListener('mouseenter', (e) => showTaskTooltip(task, e));
+          block.addEventListener('mouseleave', hideTaskTooltip);
+
+          // Drag y Resize
+          makeDraggableAndResizable(block, task);
+
+          timelineGrid.appendChild(block);
+        });
+        // Update summary panel
+        updateSummaryPanel();
+      }
+
+      function makeDraggableAndResizable(block, task) {
+        const gridWidth = timelineGrid.scrollWidth;
+        const totalHours = 24;
+        let isDragging = false;
+        let dragPreview = null;
+
+        block.addEventListener('mousedown', (e) => {
+          if (e.target.classList.contains('resize-handle')) return;
+          isDragging = true;
+          const startX = e.clientX;
+          const origLeft = block.offsetLeft;
+          // Create preview
+          dragPreview = block.cloneNode(true);
+          dragPreview.style.opacity = 0.5;
+          dragPreview.style.pointerEvents = 'none';
+          dragPreview.style.outline = '2px dashed #333';
+          dragPreview.style.background = block.style.background;
+          dragPreview.style.position = 'absolute';
+          dragPreview.style.zIndex = 50;
+          timelineGrid.appendChild(dragPreview);
+
+          const onMove = (ev) => {
+            if (!isDragging) return;
+            const dx = ev.clientX - startX;
+            let newLeft = Math.max(0, origLeft + dx);
+            const snap = gridWidth / (totalHours * 4);
+            newLeft = Math.round(newLeft / snap) * snap;
+            const newFrac = newLeft / gridWidth * totalHours;
+            const newHour = Math.floor(newFrac);
+            const newMin = Math.round((newFrac - newHour) * 60 / 15) * 15;
+            dragPreview.style.left = `${newLeft}px`;
+            dragPreview.style.top = block.style.top;
+            dragPreview.style.width = block.style.width;
+            dragPreview.innerHTML = `<span class='truncate px-2'>${task.name}</span>`;
+            dragPreview.setAttribute('data-start', `${String(newHour).padStart(2, '0')}:${String(newMin).padStart(2, '0')}`);
+          };
+
+          const onUp = () => {
+            isDragging = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            if (dragPreview) dragPreview.remove();
+            // Commit the new start time
+            if (dragPreview && dragPreview.getAttribute('data-start')) {
+              task.start = dragPreview.getAttribute('data-start');
+            }
+            renderTasks();
+          };
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+
+        // Resize Right
+        const resizeR = document.createElement('div');
+        resizeR.className = 'resize-handle absolute right-0 top-0 h-full w-2 cursor-ew-resize';
+        block.appendChild(resizeR);
+        let resizingR = false;
+        let resizePreviewR = null;
+        resizeR.addEventListener('mousedown', (e) => {
+          resizingR = true;
+          const startX = e.clientX;
+          const origWidth = block.offsetWidth;
+          // Preview
+          resizePreviewR = block.cloneNode(true);
+          resizePreviewR.style.opacity = 0.5;
+          resizePreviewR.style.pointerEvents = 'none';
+          resizePreviewR.style.outline = '2px dashed #333';
+          resizePreviewR.style.background = block.style.background;
+          resizePreviewR.style.position = 'absolute';
+          resizePreviewR.style.zIndex = 50;
+          timelineGrid.appendChild(resizePreviewR);
+
+          const onMove = (ev) => {
+            if (!resizingR) return;
+            const dx = ev.clientX - startX;
+            let newWidth = Math.max(20, origWidth + dx);
+            const snap = gridWidth / (totalHours * 4);
+            newWidth = Math.round(newWidth / snap) * snap;
+            resizePreviewR.style.width = `${newWidth}px`;
+            resizePreviewR.style.left = block.style.left;
+            resizePreviewR.style.top = block.style.top;
+            // Update duration in real time
+            const newDuration = (newWidth / gridWidth) * totalHours;
+            resizePreviewR.setAttribute('data-duration', Math.round(newDuration * 100) / 100);
+          };
+
+          const onUp = () => {
+            resizingR = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            if (resizePreviewR) resizePreviewR.remove();
+            // Commit the new duration
+            if (resizePreviewR && resizePreviewR.getAttribute('data-duration')) {
+              task.duration = parseFloat(resizePreviewR.getAttribute('data-duration'));
+            }
+            renderTasks();
+          };
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+
+        // Resize Left
+        const resizeL = document.createElement('div');
+        resizeL.className = 'resize-handle absolute left-0 top-0 h-full w-2 cursor-ew-resize';
+        block.appendChild(resizeL);
+        let resizingL = false;
+        let resizePreviewL = null;
+        resizeL.addEventListener('mousedown', (e) => {
+          resizingL = true;
+          const startX = e.clientX;
+          const origWidth = block.offsetWidth;
+          const origLeft = block.offsetLeft;
+          // Preview
+          resizePreviewL = block.cloneNode(true);
+          resizePreviewL.style.opacity = 0.5;
+          resizePreviewL.style.pointerEvents = 'none';
+          resizePreviewL.style.outline = '2px dashed #333';
+          resizePreviewL.style.background = block.style.background;
+          resizePreviewL.style.position = 'absolute';
+          resizePreviewL.style.zIndex = 50;
+          timelineGrid.appendChild(resizePreviewL);
+
+          const onMove = (ev) => {
+            if (!resizingL) return;
+            const dx = ev.clientX - startX;
+            let newLeft = origLeft + dx;
+            let newWidth = origWidth - dx;
+            const snap = gridWidth / (totalHours * 4);
+            newLeft = Math.round(newLeft / snap) * snap;
+            newWidth = Math.round(newWidth / snap) * snap;
+            if (newLeft < 0) {
+              newWidth += newLeft;
+              newLeft = 0;
+            }
+            newWidth = Math.max(20, Math.min(newWidth, gridWidth - newLeft));
+            resizePreviewL.style.left = `${newLeft}px`;
+            resizePreviewL.style.width = `${newWidth}px`;
+            resizePreviewL.style.top = block.style.top;
+            // Update start time and duration in real time
+            const newFrac = (newLeft / gridWidth) * totalHours;
+            const newHour = Math.floor(newFrac);
+            const newMin = Math.round((newFrac - newHour) * 60 / 15) * 15;
+            resizePreviewL.setAttribute('data-start', `${String(newHour).padStart(2, '0')}:${String(newMin).padStart(2, '0')}`);
+            const newDuration = (newWidth / gridWidth) * totalHours;
+            resizePreviewL.setAttribute('data-duration', Math.round(newDuration * 100) / 100);
+          };
+
+          const onUp = () => {
+            resizingL = false;
+            window.removeEventListener('mousemove', onMove);
+            window.removeEventListener('mouseup', onUp);
+            if (resizePreviewL) resizePreviewL.remove();
+            // Commit the new start and duration
+            if (resizePreviewL && resizePreviewL.getAttribute('data-start')) {
+              task.start = resizePreviewL.getAttribute('data-start');
+            }
+            if (resizePreviewL && resizePreviewL.getAttribute('data-duration')) {
+              task.duration = parseFloat(resizePreviewL.getAttribute('data-duration'));
+            }
+            renderTasks();
+          };
+
+          window.addEventListener('mousemove', onMove);
+          window.addEventListener('mouseup', onUp);
+        });
+      }
+
+      function getContrastYIQ(hexcolor) {
+        hexcolor = hexcolor.replace('#', '');
+        const r = parseInt(hexcolor.substr(0, 2), 16);
+        const g = parseInt(hexcolor.substr(2, 2), 16);
+        const b = parseInt(hexcolor.substr(4, 2), 16);
+        const yiq = (r * 299 + g * 587 + b * 114) / 1000;
+        return yiq >= 160 ? '#222' : '#fff';
+      }
+      function timeToMinutes(str) {
+        const [h, m] = str.split(':').map(Number);
+        return h * 60 + m;
+      }
+
+      // Tooltip logic
+      const tooltip = document.getElementById('tooltip');
+      function showTaskTooltip(task, e) {
+        tooltip.innerHTML = `<div class='rounded-xl shadow-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-4 min-w-[200px] max-w-xs text-left'>
+          <div class='font-bold text-accent-aqua dark:text-accent-purple mb-1'>${task.name}</div>
+          <div class='text-xs mb-1'><span class='font-semibold'>Time:</span> ${task.start} (${task.duration}h)</div>
+          ${task.location ? `<div class='text-xs mb-1'><span class='font-semibold'>Location:</span> ${task.location}</div>` : ''}
+          ${task.description ? `<div class='text-xs'><span class='font-semibold'>Description:</span> ${task.description}</div>` : ''}
+        </div>`;
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = e.clientX + 10 + 'px';
+        tooltip.style.top = e.clientY - 10 + 'px';
+      }
+      function hideTaskTooltip() {
+        tooltip.classList.add('hidden');
+      }
+
+      // Handle form submit
+      taskForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const data = Object.fromEntries(new FormData(taskForm));
+        if (editingTaskIndex !== null) {
+          // Edit mode: update existing task
+          tasks[editingTaskIndex] = {
+            name: data.name,
+            start: data.start,
+            duration: parseFloat(data.duration),
+            location: data.location,
+            description: data.description,
+            color: data.color
+          };
+        } else {
+          // Add mode: add new task
+          tasks.push({
+            name: data.name,
+            start: data.start,
+            duration: parseFloat(data.duration),
+            location: data.location,
+            description: data.description,
+            color: data.color
+          });
+        }
+        addTaskModal.classList.add('hidden');
+        editingTaskIndex = null;
+        taskForm.reset();
+        taskFormSubmitBtn.textContent = 'Add Task';
+        renderTasks();
+      });
+
+      function updateSummaryPanel() {
+        // Deduplicate overlapping intervals
+        const intervals = tasks.map(t => {
+          const [h, m] = t.start.split(':').map(Number);
+          const start = h * 60 + m;
+          const end = start + (parseFloat(t.duration) || 0) * 60;
+          return [start, end];
+        }).filter(([start, end]) => end > start);
+        intervals.sort((a, b) => a[0] - b[0]);
+        // Merge intervals
+        const merged = [];
+        for (const [start, end] of intervals) {
+          if (!merged.length || start > merged[merged.length - 1][1]) {
+            merged.push([start, end]);
+          } else {
+            merged[merged.length - 1][1] = Math.max(merged[merged.length - 1][1], end);
+          }
+        }
+        // Sum merged intervals
+        const totalWorkMins = merged.reduce((sum, [s, e]) => sum + (e - s), 0);
+        const totalWork = totalWorkMins / 60;
+        const totalBreak = Math.max(0, 24 - totalWork);
+        const workH = Math.floor(totalWork);
+        const workM = Math.round((totalWork - workH) * 60);
+        const breakH = Math.floor(totalBreak);
+        const breakM = Math.round((totalBreak - breakH) * 60);
+        document.getElementById('totalWork').textContent = `${workH}h ${workM.toString().padStart(2, '0')}m`;
+        document.getElementById('totalBreak').textContent = `${breakH}h ${breakM.toString().padStart(2, '0')}m`;
+        // Progress bars
+        const workPct = Math.min(100, (totalWork / 24) * 100);
+        const breakPct = Math.max(0, 100 - workPct);
+        document.getElementById('workBar').style.width = workPct + '%';
+        document.getElementById('breakBar').style.width = breakPct + '%';
+      }
+    </script>
+    <script>
+      // --- Focus Zone logic ---
+      const focusContent = document.getElementById('focusZoneContent');
+      function updateFocusZone() {
+        focusContent.innerHTML = '';
+        const now = new Date();
+        const nowMins = now.getHours() * 60 + now.getMinutes();
+        // Find active tasks
+        const active = tasks.map((t, i) => ({...t, _idx: i})).filter(t => {
+          const [h, m] = t.start.split(':').map(Number);
+          const start = h * 60 + m;
+          const end = start + (parseFloat(t.duration) || 0) * 60;
+          return nowMins >= start && nowMins < end;
+        });
+        if (active.length === 0) {
+          focusContent.innerHTML = `<div class='rounded-xl bg-gray-100 dark:bg-gray-800 text-accent-purple dark:text-accent-aqua p-6 text-center shadow transition font-semibold'>Break Time – Take a moment to recharge.</div>`;
+          return;
+        }
+        active.forEach((task) => {
+          const [h, m] = task.start.split(':').map(Number);
+          const start = h * 60 + m;
+          const end = start + (parseFloat(task.duration) || 0) * 60;
+          const endH = Math.floor(end / 60), endM = end % 60;
+          // Format times as AM/PM
+          function fmt(h, m) {
+            const ampm = h < 12 ? 'AM' : 'PM';
+            const hour = h % 12 === 0 ? 12 : h % 12;
+            return `${hour}:${m.toString().padStart(2, '0')} ${ampm}`;
+          }
+          const startStr = fmt(h, m);
+          const endStr = fmt(endH, endM);
+          // Time remaining
+          const minsLeft = end - nowMins;
+          const hr = Math.floor(minsLeft / 60);
+          const min = minsLeft % 60;
+          const timeLeft = minsLeft > 0 ? `${hr > 0 ? hr + 'h ' : ''}${min}m left` : 'Ending now';
+          // Card
+          const card = document.createElement('div');
+          card.className = 'flex flex-col md:flex-row items-center justify-between gap-4 rounded-xl bg-gray-50 dark:bg-gray-800 shadow border border-accent-aqua dark:border-accent-purple p-4 transition';
+          card.innerHTML = `
+            <div class='flex-1 min-w-0'>
+              <div class='font-bold text-lg text-accent-aqua dark:text-accent-purple truncate'>${task.name}</div>
+              <div class='text-xs text-gray-500 dark:text-gray-400 mb-1'>${startStr} – ${endStr}</div>
+              <div class='text-sm font-semibold text-primary-700 dark:text-accent-aqua'>${timeLeft}</div>
+            </div>
+            <div class='flex gap-2'>
+              <button class='editTaskBtn px-3 py-1 rounded-lg bg-accent-aqua dark:bg-accent-purple text-white dark:text-gray-900 font-semibold shadow hover:scale-105 transition' data-idx='${task._idx}'>Edit</button>
+              <button class='deleteTaskBtn px-3 py-1 rounded-lg bg-red-500 text-white font-semibold shadow hover:scale-105 transition' data-idx='${task._idx}'>Delete</button>
+            </div>
+          `;
+          focusContent.appendChild(card);
+        });
+      }
+
+      // Only update focus zone when tasks change or on demand
+      renderTasks = (function(origRenderTasks) {
+        return function() {
+          origRenderTasks();
+          updateFocusZone();
+        };
+      })(renderTasks);
+      // Initial render
+      updateFocusZone();
+      // Event delegation for edit/delete buttons
+      focusContent.addEventListener('click', function(e) {
+        if (e.target.classList.contains('editTaskBtn')) {
+          const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+          const task = tasks[idx];
+          if (!task) return;
+          editingTaskIndex = idx;
+          // Pre-fill form
+          taskForm.name.value = task.name;
+          taskForm.start.value = task.start;
+          taskForm.duration.value = task.duration;
+          taskForm.location.value = task.location || '';
+          taskForm.description.value = task.description || '';
+          // Set color radio
+          const colorInput = taskForm.querySelector(`input[name='color'][value='${task.color}']`);
+          if (colorInput) colorInput.checked = true;
+          taskFormSubmitBtn.textContent = 'Save Changes';
+          addTaskModal.classList.remove('hidden');
+        } else if (e.target.classList.contains('deleteTaskBtn')) {
+          const idx = parseInt(e.target.getAttribute('data-idx'), 10);
+          tasks.splice(idx, 1);
+          renderTasks();
+        }
+      });
+    </script>
+  </body>
+</html>
