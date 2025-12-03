@@ -28,20 +28,6 @@ interface SimulationStats {
   }
 }
 
-interface TooltipState {
-  show: boolean;
-  text: string;
-  x: number;
-  y: number;
-}
-
-const [tooltip, setTooltip] = useState<TooltipState>({
-  show: false,
-  text: '',
-  x: 0,
-  y: 0,
-})
-
 const GRID_COLS = 20
 const GRID_ROWS = 10
 const GRID_SIZE = GRID_COLS * GRID_ROWS
@@ -54,6 +40,20 @@ function App() {
     generation: 0,
     survivalRate: 0,
     traitAverages: { speed: 0, size: 0, energy: 0, reproduction: 0 }
+  })
+
+  interface TooltipState {
+    show: boolean;
+    text: string;
+    x: number;
+    y: number;
+  }
+  
+  const [tooltip, setTooltip] = useState<TooltipState>({
+    show: false,
+    text: '',
+    x: 0,
+    y: 0,
   })
   
   const [parameters, setParameters] = useState({
